@@ -38,7 +38,7 @@ void setup()
     abort();
   }
   rtc.disable32K();                //we don't need the 32K Pin, so disable it
-  rtc.clearAlarm(1);               // set alarm 1, 2 flag to false (so alarm 1, 2 didn't happen so far)
+  // rtc.clearAlarm(1);   CLEARS THE ALARM ON RESTART (DELETE THIS)            
   rtc.clearAlarm(2);               // if not done, this easily leads to problems, as both register aren't reset on reboot/recompile
   rtc.writeSqwPinMode(DS3231_OFF); // stop oscillating signals at SQW Pin, otherwise setAlarm1 will fail
   rtc.disableAlarm(2);             // turn off alarm 2 (in case not off already) again, this isn't done at reboot, so previously set alarm could go overlooked
@@ -77,7 +77,7 @@ void loop()
   {
     displayLocked();
   }
-  delay(50);
+  delay(200);
 }
 
 // Read day and hour buttons, and return 1 if set button is pressed
@@ -128,7 +128,8 @@ void displayUnlocked()
 
 void displayLocking()
 {
-  for (int i = 5; i > 1; i--) {
+  for (int i = 5; i > 0; i--) 
+  {
     display.clearDisplay();
     display.setCursor(0, 0); // this prevents the text from scrolling off screen
     display.println("-~ LOCKING ~-");
@@ -138,17 +139,18 @@ void displayLocking()
     display.display();
     delay(1000);
   }
-  if (!rtc.setAlarm1(rtc.now() + TimeSpan(10), DS3231_A1_Second)) // TODO: update time locked for
-  {
-    Serial.println("Error, alarm wasn't set!");
-  }
-  else
-  {
-    Serial.println("TURN LOCK");
-    Serial.print("Unlock in ");
-    Serial.print(10); // TODO update later...
-    Serial.println(" seconds!");
-  }
+  Serial.print("Status");
+  Serial.println(rtc.alarmFired(1));
+  rtc.clearAlarm(1);
+  Serial.print("Status");
+  Serial.println(rtc.alarmFired(1));
+  rtc.setAlarm1(rtc.now() + TimeSpan(hours), DS3231_A1_Second);
+  Serial.print("Status");
+  Serial.println(rtc.alarmFired(1));
+  Serial.println("TURN LOCK");
+  Serial.print("Unlock in ");
+  Serial.print(hours); // TODO update later...
+  Serial.println(" seconds!");
 }
 
 void displayLocked()
