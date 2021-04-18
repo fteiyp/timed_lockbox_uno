@@ -2,16 +2,14 @@
 #include <RTClib.h>
 #include <Wire.h>
 #include <SPI.h>
+#include <Servo.h>
 #include <Adafruit_I2CDevice.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <Bounce2.h>
 
 void displayUnlocked();
 void displayLocked();
 void displayLocking();
-void openGate();
-void alarm();
 int readButtons();
 
 #define SCREEN_WIDTH 128    // OLED display width, in pixels
@@ -19,9 +17,10 @@ int readButtons();
 #define OLED_RESET 4        // Reset pin # (or -1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x 64, 0x3C for 128x32
 
+// Instantiate classes
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 RTC_DS3231 rtc;
-Bounce bounce = Bounce(); // instantiate bounce objects for all 5 buttons/pins being used...
+Servo servo;
 
 int days = 0;
 int hours = 0;
@@ -42,6 +41,9 @@ void setup()
   rtc.clearAlarm(2);               // if not done, this easily leads to problems, as both register aren't reset on reboot/recompile
   rtc.writeSqwPinMode(DS3231_OFF); // stop oscillating signals at SQW Pin, otherwise setAlarm1 will fail
   rtc.disableAlarm(2);             // turn off alarm 2 (in case not off already) again, this isn't done at reboot, so previously set alarm could go overlooked
+
+  // Connect the servo
+  servo.attach(5);
 
   // Start the OLED display
   display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
@@ -68,10 +70,7 @@ void loop()
   if (rtc.alarmFired(1))
   {
     displayUnlocked();
-    if (readButtons())
-    {
-      displayLocking();
-    }
+    if (readButtons()) displayLocking();
   }
   else
   {
@@ -96,7 +95,7 @@ int readButtons()
     days++;
     Serial.println("days++");
   }
-  if (dayMinusButton) 
+  if (dayMinusButton && days > 0) // prevent from going below zero
   {
     days--;
     Serial.println("days--");
@@ -106,7 +105,7 @@ int readButtons()
     hours++;
     Serial.println("hours++");
   }
-  if (hourMinusButton) 
+  if (hourMinusButton && hours > 0)
   {
     hours--;
     Serial.println("hours--");
@@ -124,6 +123,8 @@ void displayUnlocked()
   display.println(hours);
   display.display();
 
+  // open the door by turning servo counterclockwise
+  servo.write(140);
 }
 
 void displayLocking()
@@ -139,14 +140,11 @@ void displayLocking()
     display.display();
     delay(1000);
   }
-  Serial.print("Status");
-  Serial.println(rtc.alarmFired(1));
   rtc.clearAlarm(1);
-  Serial.print("Status");
-  Serial.println(rtc.alarmFired(1));
   rtc.setAlarm1(rtc.now() + TimeSpan(hours), DS3231_A1_Second);
-  Serial.print("Status");
-  Serial.println(rtc.alarmFired(1));
+  // close the door by turning servo clockwise
+  servo.write(180);
+  
   Serial.println("TURN LOCK");
   Serial.print("Unlock in ");
   Serial.print(hours); // TODO update later...
@@ -156,6 +154,7 @@ void displayLocking()
 void displayLocked()
 {
   // TODO: Retrieve the days and hours left for display from RTC (need to convert)
+  servo.write(180);
   display.println("-- LOCKED --");
   display.println("Time Remaining:");
   display.print("Days:");
